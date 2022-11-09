@@ -190,7 +190,8 @@ class VecBackTest:
 
     def _backtest_layer(self, score, diy=False, const='weight', hold_days=20, **kwargs):
         """
-        打分回测2，分层回测，红利再投
+        打分回测2，分层回测，红利不投
+        资金分为20等份(hold_days等份)滚动投资，计算动态组合收益率
         :param score: 打分
         :param hold_days: 持有天数20天
         :param diy: 是否批量输出，False表示批量输出
@@ -212,7 +213,7 @@ class VecBackTest:
                 len(self.dates)-hold_days+1, hold_days, len(self.params), len(self.codes)).sum(axis=-1) / hold_days
             ret_ts = []
             for i in range(len(self.dates)-hold_days+1):
-                ret_ts.append(ret_attr[list(ret_attr.columns)[::-1]].diagonal(axis1=1, axis2=2, offset=-i).sum(axis=-1))
+                ret_ts.append(ret_attr[ret_attr[::, ::-1]].diagonal(axis1=1, axis2=2, offset=-i).sum(axis=-1))
             self.factor_perform = (1 + ret_ts).cumprod(dim=1) - 1
         else:
             pass
