@@ -213,7 +213,7 @@ class VecBackTest:
                 len(self.dates)-hold_days+1, hold_days, len(self.params), len(self.codes)).sum(axis=-1) / hold_days
             ret_ts = []
             for i in range(len(self.dates)-hold_days+1):
-                ret_ts.append(ret_attr[ret_attr[::, ::-1]].diagonal(axis1=1, axis2=2, offset=-i).sum(axis=-1))
+                ret_ts.append(ret_attr[ret_attr[..., ::-1]].diagonal(axis1=1, axis2=2, offset=-i).sum(axis=-1))
             self.factor_perform = (1 + ret_ts).cumprod(dim=1) - 1
         else:
             pass
