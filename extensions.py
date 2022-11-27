@@ -8,9 +8,9 @@ from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy as _BaseSQLAlchemy
 from sqlalchemy import exc
 from sqlalchemy import event
-from app.framework.injection import database_injector
+from framework.injection import database_injector
 
-from app.common.log import logger
+from common.log import logger
 
 
 class SQLAlchemy(_BaseSQLAlchemy):

@@ -1,7 +1,7 @@
 import cx_Oracle
-from DBUtils.PooledDB import PooledDB
+from dbutils.pooled_db import PooledDB
 
-from app.common.log import logger
+from common.log import logger
 
 
 class DatabasePool:

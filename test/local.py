@@ -5,7 +5,7 @@
 
 from pyhive import hive
 from sqlalchemy import create_engine
-from app.common.log import logger
+from common.log import logger
 from redis import StrictRedis
 
 

@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-from .const import nc
+from const import nc
 
 
 class DataTransform:

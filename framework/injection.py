@@ -2,8 +2,8 @@
 import threading
 from concurrent.futures import ThreadPoolExecutor
 
-from app.framework import ResourceInjector
-from app.framework.database import DatabasePool
+from framework import ResourceInjector
+from framework.database import DatabasePool
 
 database_pool = DatabasePool()
 

@@ -1,7 +1,7 @@
 
-from app.framework.database import DatabasePool
+from framework.database import DatabasePool
 
-from app.common.log import logger
+from common.log import logger
 
 
 def _empty_function(*args, **kwargs):

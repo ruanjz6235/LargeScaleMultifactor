@@ -1,7 +1,7 @@
 import logging
 import sys
 
-from app.framework.injection import database_injector
+from framework.injection import database_injector
 
 database_injector.config(host='10.55.57.53', database='fundrates', user='zdj', password='xtKFE8k3ctqbYDOz')
 

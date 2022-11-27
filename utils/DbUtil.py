@@ -2,9 +2,9 @@
 # -*- coding: utf-8 -*-
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import sessionmaker, scoped_session
-from app.extensions import db
-from app import extensions
-from app.test.local import LocalDb
+from extensions import db
+import extensions
+from test.local import LocalDb
 from flask import current_app
 
 

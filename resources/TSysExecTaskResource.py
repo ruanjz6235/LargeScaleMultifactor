@@ -3,8 +3,8 @@
 # @Time : 2020/6/10 10:32 上午  
 # @author: ctp
 
-from app.framework.injection import database_injector
-from app.common.log import logger
+from framework.injection import database_injector
+from common.log import logger
 
 
 class TSysExecTaskResource:

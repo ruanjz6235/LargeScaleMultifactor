@@ -5,8 +5,8 @@
 from flask import current_app
 from pyhive import hive
 
-from app import extensions
-from app.test.local import LocalHive
+import extensions
+from test.local import LocalHive
 
 
 class HiveUtil:

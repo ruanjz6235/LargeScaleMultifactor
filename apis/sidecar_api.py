@@ -2,8 +2,8 @@
 # -*- coding: utf-8 -*-
 from flask_restplus import api
 
-from app.base import *
-from app.utils.HiveUtil import HiveUtil
+from base import *
+from utils.HiveUtil import HiveUtil
 
 ns = api.namespace('sidecar', description='sidecar接口')
 

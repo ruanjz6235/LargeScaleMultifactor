@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-from app.utils import DbUtil
+from utils import DbUtil
 import pandas as pd
 
 

@@ -6,9 +6,9 @@ from datetime import datetime
 
 from flask_restplus import api
 
-from app.celery_task import scheduled_tasks
-from app import extensions
-from app.base import *
+from celery_task import scheduled_tasks
+import extensions
+from base import *
 
 ns = api.namespace('scheduled', description='定时调度接口')
 

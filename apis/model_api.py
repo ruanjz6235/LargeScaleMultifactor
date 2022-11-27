@@ -7,10 +7,10 @@ import inspect
 import numpy
 import pandas
 from flask_restplus import api
-from app import model
-from app.base import *
-from app.utils.RedisUtil import RedisUtil
-from app.util import np_array_to_json_dict, structured_array_to_json_dict
+import model
+from base import *
+from utils.RedisUtil import RedisUtil
+from util import np_array_to_json_dict, structured_array_to_json_dict
 
 ns = api.namespace('api', description='模型api接口')
 

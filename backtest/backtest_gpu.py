@@ -1,13 +1,16 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# @Time    : 2022/11/1 11:35 上午
+# @Time    : 2022/11/12 8:59 上午
 # @Author  : ruanjz
 # @project : Trace
 # @Email   : ruanjz6235@163.com
-# @File    : vec_backtest.py
+# @File    : backtest_gpu.py
 # @IDE     : PyCharm
 # @REMARKS : 说明文字
+import torch
 import numpy as np
+import numba
+from numba import cuda
 import pandas as pd
 import feather
 from itertools import product
@@ -36,8 +39,11 @@ class VecBackTest:
         self.ls = ls
         self.kwargs = kwargs
 
-        self.ret = ret
-        self.mask = pd.DataFrame()
+        if isinstance(ret, torch.Tensor):
+            self.ret = ret.numpy()
+        elif isinstance(ret, pd.DataFrame):
+            self.ret = ret.values
+        self.mask = None
         self.score = None
         self.weight = None
 
@@ -64,32 +70,32 @@ class VecBackTest:
     @classmethod
     def trans_with_last(cls, array, dim=0):
         if dim < 0:
-            dim = dim - len(array.shape)
-        list_new = np.array(range(len(array.shape)))
-        list_new[dim] = len(array.shape) - 1
-        list_new[len(array.shape) - 1] = dim
+            dim = dim - len(array)
+        list_new = np.arange(len(array))
+        list_new[dim] = len(array) - 1
+        list_new[len(array) - 1] = dim
         return list_new
 
     @classmethod
     def insert_from_last(cls, array, dim=0):
         if dim < 0:
-            dim = dim - len(array.shape)
-        list_new = np.array(range(len(array.shape)))
+            dim = dim - len(array)
+        list_new = np.arange(len(array))
         list_new = np.insert(list_new, dim, list_new[-1])[:-1]
         return list_new
 
     @classmethod
     def pull_to_last(cls, array, dim=0):
         if dim < 0:
-            dim = dim - len(array.shape)
-        list_new = np.array(range(len(array.shape)))
+            dim = dim - len(array)
+        list_new = np.arange(len(array))
         list_new = np.delete(np.append(list_new, dim), dim)
         return list_new
 
     @classmethod
     def rolling_window(cls, array: np.array, window, dim=0):
 
-        array = array.transpose(cls.pull_to_last(array, dim))
+        array = array.transpose(cls.pull_to_last(array.shape, dim))
 
         shape = array.shape[:-1] + (array.shape[-1] - window + 1, window)
         strides = array.strides + (array.strides[-1],)
@@ -155,6 +161,7 @@ class VecBackTest:
         if not diy:
             self.no_diy_params()
             assert len(self.params) > 0
+            i = 0
             for i, o, c, l in enumerate(self.params):
                 self._get_weight(score, obj_num=o, cand=c, ls=l, **kwargs)
                 if i == 0:
@@ -173,7 +180,7 @@ class VecBackTest:
 
         self.dates, self.codes = self.ret.index, self.sub_weight.columns
 
-    def _backtest_period(self, score, diy=False, const='weight', **kwargs):
+    def backtest_period(self, score, diy=False, const='weight', **kwargs):
         """
         打分回测1，单期回测，红利再投
         :param score: 打分
@@ -188,7 +195,7 @@ class VecBackTest:
 
         self._backtest_port(self.weight, const)
 
-    def _backtest_layer(self, score, diy=False, const='weight', hold_days=20, **kwargs):
+    def backtest_layer(self, score, diy=False, const='weight', hold_days=20, **kwargs):
         """
         打分回测2，分层回测，红利不投
         资金分为20等份(hold_days等份)滚动投资，计算动态组合收益率
@@ -213,12 +220,12 @@ class VecBackTest:
                 len(self.dates)-hold_days+1, hold_days, len(self.params), len(self.codes)).sum(axis=-1) / hold_days
             ret_ts = []
             for i in range(len(self.dates)-hold_days+1):
-                ret_ts.append(ret_attr[ret_attr[..., ::-1]].diagonal(axis1=1, axis2=2, offset=-i).sum(axis=-1))
+                ret_ts.append(ret_attr[..., ::-1].diagonal(axis1=1, axis2=2, offset=-i).sum(axis=-1))
             self.factor_perform = (1 + ret_ts).cumprod(dim=1) - 1
         else:
             pass
 
-    def _backtest_port(self, portfolio, const='weight'):
+    def backtest_port(self, portfolio, const='weight'):
         """组合回测，给定组合(金额or权重)"""
         self.weight = portfolio.copy()
 
@@ -235,7 +242,35 @@ class VecBackTest:
             pass
 
 
-def backtest(data, func):
-    pass
+import pytest
+
+
+def backtest(data, func, ret, obj_num, cand, ls, query_name, mask_rule, diy, const, hold_days, **kwargs):
+    """
+    data: 源数据
+    func: 因子生成函数
+    """
+    score = func(data)
+    bt = VecBackTest(ret, obj_num, cand, ls, **kwargs)
+    bt.get_mask(query_name, mask_rule, dummy)
+    bt.backtest_layer(score, diy, const, hold_days, **bt.kwargs)
+    bt.backtest_period(score, diy, const, **bt.kwargs)
+    return bt.factor_perform
+
+
+def backtest_large_scale(data, funcs, ret):
+    scores = funcs(data)
+    bt = VecBackTest(ret, obj_num, cand, ls, **kwargs)
+    bt.get_mask(query_name, mask_rule, dummy)
+    bt.backtest_layer(scores, diy, const, hold_days, **bt.kwargs)
+    bt.backtest_period(scores, diy, const, **bt.kwargs)
+    return bt.factor_perform
+
+
+if __name__ == '__main__':
+    print(np.array([1, 2, 3, 4, 5]))
+
+
+
 
 

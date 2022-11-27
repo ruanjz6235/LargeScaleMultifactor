@@ -7,8 +7,8 @@
 import os
 from flask import current_app
 
-from app.celery_task import celery
-from app.common.log import logger
+from celery_task import celery
+from common.log import logger
 
 
 # 通过celery.task装饰耗时任务函数,bind为True会传入self给被装饰的函数,用于记录和更新任务状态

@@ -8,9 +8,9 @@ import os
 from celery.signals import task_postrun
 from flask import current_app
 
-from app import model
-from app.extensions import celery, db
-from app.common.log import logger
+import model
+from extensions import celery, db
+from common.log import logger
 
 
 # 通过celery.task装饰耗时任务函数,bind为True会传入self给被装饰的函数,用于记录和更新任务状态

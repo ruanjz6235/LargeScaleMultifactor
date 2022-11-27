@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 # @Time : 2020/1/19 10:50 上午
 
-from app.utils.util import np_array_to_json_dict, structured_array_to_json_dict
+from utils.util import np_array_to_json_dict, structured_array_to_json_dict
 import pandas
 import numpy
 
