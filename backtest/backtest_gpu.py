@@ -7,13 +7,15 @@
 # @File    : backtest_gpu.py
 # @IDE     : PyCharm
 # @REMARKS : 说明文字
-import torch
 import numpy as np
 import numba
 from numba import cuda
+
+import torch
 import pandas as pd
 import feather
 from itertools import product
+
 from query.backtest import ProcessSelect
 from data_transform import DataTransform
 from const import nc
