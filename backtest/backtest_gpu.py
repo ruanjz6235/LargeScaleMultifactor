@@ -9,12 +9,12 @@
 # @REMARKS : 说明文字
 import numpy as np
 import numba
-from numba import cuda
-
+# from numba import cuda
 import torch
 import pandas as pd
 import feather
 from itertools import product
+from functools import lru_cache
 
 from query.backtest import ProcessSelect
 from data_transform import DataTransform
@@ -23,7 +23,7 @@ from const import nc
 
 class VecBackTest:
     def __init__(self,
-                 ret,
+                 ret: torch.tensor,
                  obj_num=200,
                  cand=True,
                  ls=True,
@@ -41,10 +41,8 @@ class VecBackTest:
         self.ls = ls
         self.kwargs = kwargs
 
-        if isinstance(ret, torch.Tensor):
-            self.ret = ret.numpy()
-        elif isinstance(ret, pd.DataFrame):
-            self.ret = ret.values
+        self.ret = ret
+
         self.mask = None
         self.score = None
         self.weight = None
@@ -52,6 +50,13 @@ class VecBackTest:
         self.params = None
         self.dates = None
         self.codes = None
+
+    @classmethod
+    def to_cuda(cls, tensor: torch.tensor):
+        device = 'cpu' if torch.cuda.is_available() else 'cuda'
+        if tensor.device.type == 'cpu':
+            tensor = tensor.to(device)
+        return tensor
 
     def no_diy_params(self):
         obj_num = list(range(100, 600, 100))
@@ -107,6 +112,7 @@ class VecBackTest:
             cls.insert_from_last(rolling_array, dim))
 
     @classmethod
+    @lru_cache(maxsize=999)
     def compute_mask(cls, query_name, mask_rule={0: 0, 1: 1}, dummy=True, **kwargs):
         # tmp = ProcessSelect.get_data(getattr(ProcessSelect, query_name), **kwargs)
         tmp = feather.read_dataframe(query_name.format(**kwargs))
@@ -116,6 +122,7 @@ class VecBackTest:
         mask = mask.where(~mask.isna(), 0)
         return mask
 
+    @lru_cache(maxsize=999)
     def get_mask(self, query_name=['st', 'suspend'], mask_rule=[{0: 0}, {0: 0}], dummy=[True, True], **kwargs):
 
         for i in len(query_name):
@@ -123,33 +130,38 @@ class VecBackTest:
             self.mask = self.add(self.mask, sub_mask)
 
         self.mask = np.exp(self.mask.where(self.mask > 0, - np.inf)).T
+        self.mask = self.to_cuda(torch.tensor(self.mask.values))
 
-    def _get_weight(self, score: pd.DataFrame, obj_num=200, cand=False, ls=False, **kwargs):
-        mask = self.mask.where(self.mask == 0, np.nan).where(self.mask == 1, 0)
-        score, mask = DataTransform(score).align(mask)
+    def _get_weight(self, score: torch.tensor, obj_num=200, cand=False, ls=False, **kwargs):
+
+        score = self.to_cuda(score)
+
+        mask = torch.where(self.mask != 0, self.mask.fill_(0), self.mask.fill_(torch.nan))
         # 其他方法
         if len(kwargs) == 0:
             # 有候补
             if cand:
                 score = score + mask
             # 多头
-            self.score = score.where(score.quantile(obj_num/len(score))).where(~score.isna(), 0).where(score.isna(), 1)
+            self.score = score.where(score > score.quantile(obj_num/score.shape[0]), other=torch.tensor(torch.nan)
+                                     ).where(~score.isna(), 0).where(score.isna(), 1)
             # 是否有多空
             if ls:
-                score1 = score.where(score.quantile(1 - obj_num/len(score))).where(~score.isna(), 0).where(score.isna(), - 1)
+                score1 = score.where(score > score.quantile(1 - obj_num/len(score)), other=torch.tensor(torch.nan)
+                                     ).where(~score.isna(), 0).where(score.isna(), - 1)
                 self.score = self.score + score1
             # 若无候选，相关mask掉的股票后面得去掉
             if not cand:
-                self.score = (self.score + mask).fillna(0)
+                self.score = (self.score + mask).nan_to_num(0)
         else:
             func = kwargs.pop('func')
             if cand:
                 score = score + mask
             self.score = func(score, **kwargs)
             if not cand:
-                self.score = (self.score + mask).fillna(0)
+                self.score = (self.score + mask).nan_to_num(0)
         # 归一化
-        self.sub_weight = self.score / self.score.sum()
+        self.sub_weight = self.score / self.score.sum(dim=1)
 
     def sell_limit(self, weight, sell_type=1):
         # todo: sell_suspend, 卖出停牌
@@ -158,26 +170,25 @@ class VecBackTest:
         elif sell_type == 2:
             self.weight = self.weight.copy()
 
+    @numba.jit
     def get_weight(self, score, diy=False, **kwargs):
         # 网格法
         if not diy:
             self.no_diy_params()
             assert len(self.params) > 0
             i = 0
-            for i, o, c, l in enumerate(self.params):
-                self._get_weight(score, obj_num=o, cand=c, ls=l, **kwargs)
+            for i, obj_num, cand, ls in enumerate(self.params):
+                self._get_weight(score, obj_num=obj_num, cand=cand, ls=ls, **kwargs)
                 if i == 0:
-                    self.weight = self.sub_weight.values
+                    self.weight = self.sub_weight
                     continue
-                self.weight = np.hstack([self.weight, self.sub_weight.values])
+                self.weight = torch.cat([self.weight, self.sub_weight], dim=-1)
 
-            self.weight = pd.DataFrame(self.weight,
-                                       columns=np.hstack([self.sub_weight.columns] * (i + 1)),
-                                       index=self.sub_weight.index)
+            self.columns = list(product(self.params, list(range(i+1))))
 
         else:
             self._get_weight(score, obj_num=self.obj_num, cand=self.cand, ls=self.ls, **self.kwargs)
-            self.weight = self.sub_weight.copy()
+            self.weight = self.sub_weight
             self.params = [[self.obj_num, self.cand, self.ls]]
 
         self.dates, self.codes = self.ret.index, self.sub_weight.columns
@@ -197,6 +208,7 @@ class VecBackTest:
 
         self._backtest_port(self.weight, const)
 
+    @numba.jit
     def backtest_layer(self, score, diy=False, const='weight', hold_days=20, **kwargs):
         """
         打分回测2，分层回测，红利不投
@@ -211,18 +223,22 @@ class VecBackTest:
         self.get_weight(score, diy=diy, **kwargs)
 
         # ret.shape = (codes, dates), rolling_ret = (codes*params, window, dates - window + 1)
-        rolling_ret = self.rolling_window(self.ret[codes].values, window=hold_days, dim=0)
-        rolling_ret = np.stack([rolling_ret] * len(self.params), axis=-1)
+        rolling_ret = self.ret.unfold(0, hold_days, 1)
+        rolling_ret = rolling_ret.repeat(len(self.params), 1, 1)
 
         # todo: 1. 保持资金权重不变; 2. 保持份额不变.
         if const == 'weight':
-            rolling_weight = np.stack([self.weight.values] * (len(self.dates)-hold_days+1), axis=-2)
+            rolling_weight = self.weight.repeat(1, 1, len(self.dates)-hold_days+1)
             self.sell_limit(rolling_weight, sell_type=1)
             ret_attr = (rolling_weight * rolling_ret).reshape(
-                len(self.dates)-hold_days+1, hold_days, len(self.params), len(self.codes)).sum(axis=-1) / hold_days
+                len(self.dates)-hold_days+1,
+                hold_days,
+                len(self.params),
+                len(self.codes)
+            ).sum(dim=-1) / hold_days
             ret_ts = []
             for i in range(len(self.dates)-hold_days+1):
-                ret_ts.append(ret_attr[..., ::-1].diagonal(axis1=1, axis2=2, offset=-i).sum(axis=-1))
+                ret_ts.append(ret_attr.flip(-1).diagonal(dim1=1, dim2=2, offset=i).sum(dim=-1))
             self.factor_perform = (1 + ret_ts).cumprod(dim=1) - 1
         else:
             pass
@@ -244,9 +260,6 @@ class VecBackTest:
             pass
 
 
-import pytest
-
-
 def backtest(data, func, ret, obj_num, cand, ls, query_name, mask_rule, diy, const, hold_days, **kwargs):
     """
     data: 源数据
@@ -260,6 +273,7 @@ def backtest(data, func, ret, obj_num, cand, ls, query_name, mask_rule, diy, con
     return bt.factor_perform
 
 
+@numba.jit
 def backtest_large_scale(data, funcs, ret):
     scores = funcs(data)
     bt = VecBackTest(ret, obj_num, cand, ls, **kwargs)
@@ -269,8 +283,6 @@ def backtest_large_scale(data, funcs, ret):
     return bt.factor_perform
 
 
-if __name__ == '__main__':
-    print(np.array([1, 2, 3, 4, 5]))
 
 
 

@@ -125,10 +125,12 @@ class VecBackTest:
             if cand:
                 score = score + mask
             # 多头
-            self.score = score.where(score.quantile(obj_num/len(score))).where(~score.isna(), 0).where(score.isna(), 1)
+            self.score = score.where(score > score.quantile(obj_num/len(score), dim=0)
+                                     ).where(~score.isna(), 0).where(score.isna(), 1)
             # 是否有多空
             if ls:
-                score1 = score.where(score.quantile(1 - obj_num/len(score))).where(~score.isna(), 0).where(score.isna(), - 1)
+                score1 = score.where(score > score.quantile(1 - obj_num/len(score), dim=0)
+                                     ).where(~score.isna(), 0).where(score.isna(), - 1)
                 self.score = self.score + score1
             # 若无候选，相关mask掉的股票后面得去掉
             if not cand:
