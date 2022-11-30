@@ -281,4 +281,3 @@ def backtest_large_scale(data, funcs, ret):
     bt.backtest_layer(scores, diy, const, hold_days, **bt.kwargs)
     bt.backtest_period(scores, diy, const, **bt.kwargs)
     return bt.factor_perform
-
