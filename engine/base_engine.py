@@ -230,3 +230,4 @@ class BaseEngine(nn.Module):
                 "AMP enabled (check https://github.com/NVIDIA/apex for more details).")
             self.model, self.optimizer.opt = self.amp_lib.initialize(
                 self.model, self.optimizer.opt, opt_level='O1')
+
