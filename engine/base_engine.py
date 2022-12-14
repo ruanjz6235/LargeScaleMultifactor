@@ -32,7 +32,7 @@ from src.option import default_hparas
 
 class BaseEngine(nn.Module):
     def __init__(self):
-        super().__init__()
+        super(BaseEngine, self).__init__()
         for k, v in default_hparas.items():
             setattr(self, k, v)
         self.device = torch.device('cuda') if self.paras.gpu and torch.cuda.is_available() else torch.device('cpu')
@@ -103,6 +103,54 @@ class BaseEngine(nn.Module):
                 **kwargs):
         """ensemble"""
         pass
+
+    def execute(self, X):
+        """Execute the program according to X.
+
+        Parameters
+        ----------
+        X : {array-like}, shape = [n_samples, n_features]
+            Training vectors, where n_samples is the number of samples and
+            n_features is the number of features.
+
+        Returns
+        -------
+        y_hats : array-like, shape = [n_samples]
+            The result of executing the program on X.
+
+        """
+        # Check for single-node programs
+        node = self.program[0]
+        if isinstance(node, float):
+            return np.repeat(node, X.shape[0])
+        if isinstance(node, int):
+            return X[:, node]
+
+        apply_stack = []
+
+        for node in self.program:
+
+            if isinstance(node, _Function):
+                apply_stack.append([node])
+            else:
+                # Lazily evaluate later
+                apply_stack[-1].append(node)
+
+            while len(apply_stack[-1]) == apply_stack[-1][0].arity + 1:
+                # Apply functions that have sufficient arguments
+                function = apply_stack[-1][0]
+                terminals = [np.repeat(t, X.shape[0]) if isinstance(t, float)
+                             else X[:, t] if isinstance(t, int)
+                             else t for t in apply_stack[-1][1:]]
+                intermediate_result = function(*terminals)
+                if len(apply_stack) != 1:
+                    apply_stack.pop()
+                    apply_stack[-1].append(intermediate_result)
+                else:
+                    return intermediate_result
+
+        # We should never get here
+        return None
 
     @abc.abstractmethod
     def load_data(self):

@@ -12,11 +12,21 @@ import torch.nn as nn
 from engine.base_engine import BaseEngine
 
 
-class BaseModel(nn.Module):
-    def __init__(self):
-        super().__init__()
+class BaseModel(BaseEngine):
+    def __init__(self, model_type):
+        super(BaseModel, self).__init__()
+        self.model_type = model_type
 
-    def fit(self):
+    def load_data(self):
+        pass
+
+    def set_model(self):
+        pass
+
+    def exec(self):
+        pass
+
+    def out_data(self):
         pass
 
 
