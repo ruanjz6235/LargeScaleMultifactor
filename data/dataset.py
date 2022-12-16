@@ -78,6 +78,7 @@ class PadDataset(Dataset):
             if len_dates >= 0.3 * len(self.ret):
                 break
 
+
     def __len__(self):
         return len(self.ret)
 
