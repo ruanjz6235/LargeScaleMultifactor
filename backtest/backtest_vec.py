@@ -118,7 +118,7 @@ class VecBackTest:
 
     def _get_weight(self, score: pd.DataFrame, obj_num=200, cand=False, ls=False, **kwargs):
         mask = self.mask.where(self.mask == 0, np.nan).where(self.mask == 1, 0)
-        score, mask = DataTransform(score).align(mask)
+        score, mask = DataTransform(score).align(mask, align_type='intersection')
         # 其他方法
         if len(kwargs) == 0:
             # 有候补

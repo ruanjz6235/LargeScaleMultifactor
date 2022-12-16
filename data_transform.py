@@ -46,16 +46,36 @@ class DataTransform:
     def get_df(self):
         return self.df
 
-    def align(self, *dfs):
-        dfs = (self.df, ) + dfs
+    def align(self, dfs: list, align_type='intersection', sort='nature'):
+        dfs = [self.df] + dfs
         if any(len(df.shape) == 1 or 1 in df.shape for df in dfs):
             dims = 1
         else:
             dims = 2
-        mut_index = sorted(reduce(lambda x, y: x.intersection(y), (df.index for df in dfs)))
-        mut_columns = sorted(reduce(lambda x, y: x.intersection(y), (df.columns for df in dfs)))
-        if dims == 2:
-            dfs = [df.loc[mut_index, mut_columns] for df in dfs]
-        else:
-            dfs = [df.loc[mut_index, :] for df in dfs]
+        mut_index = sorted(reduce(lambda x, y: getattr(x, align_type)(y), (df.index for df in dfs)))
+        mut_columns = sorted(reduce(lambda x, y: getattr(x, align_type)(y), (df.columns for df in dfs)))
+        if align_type == 'intersection':
+            if dims == 2:
+                dfs = [df.loc[mut_index, mut_columns] for df in dfs]
+            else:
+                dfs = [df.loc[mut_index, :] for df in dfs]
+        else:    # align_type = 'union' or 'left'
+            if align_type == 'left':
+                mut_columns, mut_index = dfs[0].columns, dfs[0].index
+            if dims == 2:
+                dfs = [
+                    pd.concat(
+                        [df, pd.DataFrame(columns=mut_columns[~mut_columns.isin(df.columns)],
+                                          index=mut_index[~mut_index.isin(df.index)])
+                         ]
+                    ).loc[mut_index, mut_columns].fillna(0) for df in dfs
+                ]
+            else:
+                dfs = [
+                    pd.concat(
+                        [pd.DataFrame(df), pd.DataFrame(columns=pd.DataFrame(df).columns,
+                                                        index=mut_index[~mut_index.isin(df.index)])
+                         ]
+                    ).loc[mut_index, :].fillna(0) for df in dfs
+                ]
         return dfs

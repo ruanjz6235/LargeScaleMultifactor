@@ -13,8 +13,12 @@ from pathlib import Path
 from os.path import join, getsize
 from joblib import Parallel, delayed
 from torch.utils.data import Dataset
+import torch
 import feather
 import pandas as pd
+import numpy as np
+from sklearn.utils.random import check_random_state
+from data_transform import DataTransform
 from pyarrow.filesystem import FileSystem as fs
 spark = fs()
 
@@ -44,7 +48,7 @@ def read_data(path):
 class PadDataset(Dataset):
     def __init__(self,
                  tokenizer,
-                 origin,
+                 origins,
                  ret_path,
                  bucket_size,
                  ret=None,
@@ -52,28 +56,30 @@ class PadDataset(Dataset):
         self.tokenizer = tokenizer
         self.bucket_size = bucket_size
 
-        if isinstance(origin, pd.DataFrame):
-            self.origin = origin
-            self.codes = list(origin.columns)
-            self.dates = list(origin.index)
-        else:
-            raise TypeError('origin data is not a dataframe, please check out origin data')
+        for origin in origins:
+            if not isinstance(origin, pd.DataFrame):
+                raise TypeError('origin data is not a dataframe, please check out origin data')
 
         if ret is None:
-            self.ret = read_data(ret_path)
-        else:
-            self.ret = ret.copy()
+            ret = read_data(ret_path)
 
-        if isinstance(self.ret, pd.DataFrame):
-            self.codes_all = list(self.ret.columns)
-            self.dates_all = list(self.ret.index)
+        if isinstance(ret, pd.DataFrame):
+            self.codes = list(ret.columns)
+            self.dates = list(ret.index)
         else:
             raise TypeError('ret data is not a dataframe, please check out ret data')
 
-
+        self.ret, self.origins = DataTransform(ret).align(dfs=origins, align_type='left')
+        self.ret, self.origins = torch.tensor(self.ret.values), [torch.tensor(origin.values) for origin in self.origins]
 
     def __getitem__(self, index):
-        pass
+        while True:
+            len_dates = torch.random
+            if len_dates >= 0.3 * len(self.ret):
+                break
+
+    def __len__(self):
+        return len(self.ret)
 
 
 class MaskDataset(Dataset):
