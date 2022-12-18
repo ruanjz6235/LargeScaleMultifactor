@@ -17,6 +17,7 @@ import torch
 import feather
 import pandas as pd
 import numpy as np
+import random
 from sklearn.utils.random import check_random_state
 from data_transform import DataTransform
 from pyarrow.filesystem import FileSystem as fs
@@ -51,8 +52,7 @@ class PadDataset(Dataset):
                  origins,
                  ret_path,
                  bucket_size,
-                 ret=None,
-                 ascending=True):
+                 ret=None):
         self.tokenizer = tokenizer
         self.bucket_size = bucket_size
 
@@ -74,10 +74,13 @@ class PadDataset(Dataset):
 
     def __getitem__(self, index):
         while True:
-            len_dates = torch.random
+            len_dates = np.random.randint(len(self.ret))
             if len_dates >= 0.3 * len(self.ret):
-                break
-
+                dates_index = np.array(random.sample(range(len(self.ret)), len_dates))
+                dates_index.sort()
+                ret_sample = self.ret[dates_index]
+                origins_sample = [origin[dates_index] for origin in self.origins]
+                return ret_sample, origins_sample
 
     def __len__(self):
         return len(self.ret)
