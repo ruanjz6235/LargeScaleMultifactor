@@ -161,3 +161,4 @@ if __name__ == '__main__':
     datasets_class = [globals()[x] for x in datasets_name]
     keys = {}
     mix_wrapper(*datasets_class, **keys)
+
