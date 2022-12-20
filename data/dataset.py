@@ -156,9 +156,8 @@ class MaskDataset(Dataset):
         return len(self.ret)
 
 
-if __name__ == '__main__':
-    datasets_name = [x for x in globals().keys() if x.endswith('Dataset') and x != 'Dataset']
-    datasets_class = [globals()[x] for x in datasets_name]
-    keys = {}
-    mix_wrapper(*datasets_class, **keys)
+datasets_name = [x for x in globals().keys() if x.endswith('Dataset') and x != 'Dataset']
+datasets_class = [globals()[x] for x in datasets_name]
+keys = {}
+mix_dataset = mix_wrapper(*datasets_class, **keys)
 
